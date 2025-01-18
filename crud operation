@@ -1,0 +1,342 @@
+using System;
+using System.Data;
+using System.Web.UI.WebControls;
+using System.Xml.Linq;
+using Microsoft.Ajax.Utilities;
+using Npgsql;
+
+namespace WebApplication1
+{
+    public partial class _Default : System.Web.UI.Page
+    {
+        // Connection string to the PostgreSQL database
+        string connectionString = "Server=localhost;Port=5432;Database=postgres;User Id=postgres;Password=root";
+
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+            {
+                BindGrid();
+            }
+        }
+
+        // Submit (Insert) operation
+        protected void submit(object sender, EventArgs e)
+        {
+            string invalidField = "";
+            if (string.IsNullOrWhiteSpace(txtId.Text))
+            {
+                invalidField = "Id";
+            }
+            else if(string.IsNullOrWhiteSpace(txtName.Text))
+            {
+                invalidField ="Name" ;
+            }
+
+            if (!string.IsNullOrWhiteSpace(txtId.Text) && !string.IsNullOrWhiteSpace(txtName.Text))
+            {
+
+
+                using (var connection = new NpgsqlConnection(connectionString))
+                {
+                    connection.Open();
+                    string query = "INSERT INTO student (id,name, gender, address, phone_no, email) VALUES (@Id,@Name, @Gender, @Address, @PhoneNumber, @Email)";
+
+                    using (var command = new NpgsqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("Id", txtId.Text);
+                        command.Parameters.AddWithValue("Name", txtName.Text);
+                        command.Parameters.AddWithValue("Gender", male.SelectedValue == null ? null : male.SelectedValue);
+                        command.Parameters.AddWithValue("Address", Address.Text);
+                        command.Parameters.AddWithValue("PhoneNumber", Phone.Text);
+                        command.Parameters.AddWithValue("Email", email1.Text);
+
+                        NpgsqlDataAdapter adapter = new NpgsqlDataAdapter(command);
+                        DataTable dt = new DataTable();
+                        adapter.Fill(dt);
+                        ViewState["Data"] = dt;
+                        gvData.DataSource = ViewState["Data"];
+                        gvData.DataBind();
+                    }
+                    connection.Close();
+                    ClearFields();
+                    BindGrid();
+                }
+            }else
+            {
+                Response.Write("Please enter the required fields : "+invalidField);
+               // idValidator.Validate();
+
+                // this.Page.ClientScript.RegisterStartupScript(this.GetType(), "ex", "alert('Please enter the valid data');", true);
+            }
+
+           
+        }
+
+        // Update operation
+        protected void update(object sender, EventArgs e)
+        {
+
+            using (var connection = new NpgsqlConnection(connectionString))
+            {
+                
+                connection.Open();
+               string query = "UPDATE student SET name = @Name, gender = @Gender, address = @Address, phone_no = @PhoneNumber, email = @Email WHERE id = @Id";
+
+                using (var command = new NpgsqlCommand(query,connection))
+                {
+                    command.Parameters.AddWithValue("@Name", txtName.Text);
+                    command.Parameters.AddWithValue("@Gender", male.SelectedValue);
+                    command.Parameters.AddWithValue("@Address", Address.Text);
+                    command.Parameters.AddWithValue("@PhoneNumber", Phone.Text);
+                    command.Parameters.AddWithValue("@Email", email1.Text);
+                    command.Parameters.AddWithValue("@Id", txtId.Text);
+
+                    NpgsqlDataAdapter adapter = new NpgsqlDataAdapter(command);
+                    DataTable dt = new DataTable();
+                    adapter.Fill(dt);
+                    ViewState["Data"] = dt;
+                    gvData.DataSource = ViewState["Data"];
+                    gvData.DataBind();
+                }
+                connection.Close();
+            }
+
+            ClearFields();
+            BindGrid();
+        }
+
+
+        // Delete operation
+        protected void delete(object sender, EventArgs e)
+        {
+            using (var connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = "DELETE FROM student WHERE id = @Id";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("Id", (txtId.Text));
+                    command.ExecuteNonQuery();
+                }
+            }
+            ClearFields();
+            BindGrid();
+        }
+
+        // Clear fields
+        protected void clear(object sender, EventArgs e)
+        {
+            // Call the method to clear form fields
+            ClearFields();
+        }
+
+        // Method to clear form fields
+        private void ClearFields()
+        {
+            // Clear text fields
+            txtId.Text = string.Empty;
+            male.ClearSelection();
+            txtName.Text = string.Empty;
+            Address.Text = string.Empty;
+            Phone.Text = string.Empty;
+            email1.Text = string.Empty;
+            txtId.Enabled = true;
+        }
+
+
+
+        private void BindGrid()
+        {
+            using (var connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = "Select * from student order by id";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    NpgsqlDataAdapter adapter = new NpgsqlDataAdapter(command);
+                    DataTable dt = new DataTable();
+                    adapter.Fill(dt);
+                    gvData.DataSource = ViewState["Data"] = dt;
+                    gvData.DataBind();
+                }
+            }
+        }
+        protected void selected(object s, EventArgs e)
+        {
+            txtId.Text = gvData.SelectedRow.Cells[0].Text;
+            txtId.Enabled = false;
+            txtName.Text = gvData.SelectedRow.Cells[1].Text;
+            male.Text = gvData.SelectedRow.Cells[2].Text;
+            Address.Text = gvData.SelectedRow.Cells[3].Text;
+            Phone.Text = gvData.SelectedRow.Cells[4].Text;
+            email1.Text = gvData.SelectedRow.Cells[5].Text;
+        }
+
+    }
+}
+
+
+2.Frond end user code 
+
+
+<%@ Page Title="Home Page" Language="C#" MasterPageFile="~/Site.Master" AutoEventWireup="true" CodeBehind="Default.aspx.cs" Inherits="WebApplication1._Default" %>
+
+<asp:Content ID="BodyContent" ContentPlaceHolderID="MainContent" runat="server">
+
+    <style>
+        .form-table {
+            width: 40%;
+            border-collapse: collapse;
+            margin: 10px;
+            font-size: 18px;
+            text-align: left;
+        }
+
+            .form-table th, .form-table td 
+            {
+                padding: 7px;
+                border: 1px solid #dddddd;
+            }
+
+            .form-table th {
+                background-color: #f2f2f2;
+            }
+
+        .form-buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+            .form-buttons .btn {
+                margin-right: 8px;
+                padding: 10px 20px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+    </style>
+
+    <table class="form-table">
+        <tr>
+            <th>
+                <asp:Label ID="lblId" Text="ID" runat="server"></asp:Label>
+            </th>
+            <td>
+                <asp:TextBox ID="txtId" Placeholder="ID" runat="server" TextMode="Number" AutoCompleteType="Disabled"></asp:TextBox>
+           <asp:RegularExpressionValidator ID="idValidator" ControlToValidate="txtId" runat="server" 
+                            ErrorMessage="Please enter value"  ValidationExpression="^[0-9]$" 
+                            Display="Dynamic" CssClass="message-error">
+            </asp:RegularExpressionValidator>
+
+                </td>
+        </tr>
+        <tr>
+            <th>
+                <asp:Label ID="lblName" Text="Name" runat="server"></asp:Label>
+            </th>
+            <td>
+                <asp:TextBox ID="txtName" Placeholder="Name" runat="server"></asp:TextBox>
+                
+            </td>
+        </tr>
+        <tr>
+            <th>
+                <asp:Label ID="gender" Text="Gender" runat="server"></asp:Label>
+            </th>
+            <td>
+                
+                <asp:RadioButtonList ID="male" runat="server" Width="100px">
+                    <asp:ListItem>Male</asp:ListItem>
+                    <asp:ListItem>Female</asp:ListItem>
+                </asp:RadioButtonList>
+            </td>
+        </tr>
+        <tr>
+            <th>
+                <asp:Label ID="Label1" Text="Address" runat="server"></asp:Label>
+            </th>
+            <td>
+                <asp:TextBox ID="Address" Placeholder="Address" runat="server" TextMode="MultiLine"></asp:TextBox>
+            </td>
+        </tr>
+        <tr>
+            <th>
+                <asp:Label ID="Phoneno" Text="PhoneNo" runat="server"></asp:Label>
+            </th>
+            <td>
+                <asp:TextBox ID="Phone" Placeholder="PhoneNumber" runat="server" TextMode="Phone" MaxLength="10"></asp:TextBox>
+                <asp:RegularExpressionValidator ID="regx" runat="server" ControlToValidate="Phone" ErrorMessage="*Enter valid Mobile Number only in digit" 
+                    ForeColor="Red" ValidationExpression="^[0][0-9]{10}|^[+91][0-9]{12}|[0-9]{10}"></asp:RegularExpressionValidator>
+            </td>
+        </tr>
+        <tr>
+            <th>
+                <asp:Label ID="email" Text="Email" runat="server"></asp:Label>
+            </th>
+            <td>
+                <asp:TextBox ID="email1" Placeholder="Email" runat="server" TextMode="Email"></asp:TextBox>
+            </td>
+        </tr>
+        <tr class="form-buttons">
+            <td colspan="2" align="center">
+                <asp:Button ID="button" Text="Submit" runat="server" CssClass="btn" OnClick="submit" />
+                <asp:Button ID="button1" Text="Update" runat="server" CssClass="btn" OnClick="update" />
+                <asp:Button ID="button2" Text="Delete" runat="server" CssClass="btn" OnClick="delete" />
+
+                <asp:Button ID="Button4" runat="server" Text="Clear" OnClick="clear" />
+            </td>
+        </tr>
+
+        <!-- GridView to Display Data -->
+        <tr>
+            <td colspan="2">
+                <asp:GridView ID="gvData" runat="server" AutoGenerateColumns="false" OnSelectedIndexChanged="selected">
+                    <Columns>
+                        <asp:BoundField DataField="id" HeaderText="ID" ReadOnly="True" />
+                        <asp:BoundField DataField="name" HeaderText="Name" />
+                       <asp:BoundField DataField="gender" HeaderText="Gender" />
+                        <asp:BoundField DataField="address" HeaderText="Address" />
+                        <asp:BoundField DataField="phone_no" HeaderText="PhoneNo" />
+                        <asp:BoundField DataField="email" HeaderText="Email"/>
+                        <asp:CommandField ShowSelectButton="true" ButtonType="Button" />
+                    </Columns>
+                </asp:GridView>
+
+
+            </td>
+        </tr>
+    </table>
+</asp:Content>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
